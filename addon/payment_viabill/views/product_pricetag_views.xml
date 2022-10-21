@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<template id="product_pricetag" inherit_id="website_sale.product" name="product pricetag">				
+		<xpath expr="//input[@name='product_id']" position="after"> 
+			<t t-set="pricetags_enabled" t-value="True" />
+			<t t-set="pricetags_dynamic" t-value="False" />			
+			<t t-if="pricetags_enabled">
+				<t t-if="pricetags_dynamic">
+				</t>
+				<div t-if="pricetags_dynamic == False" class="viabill-pricetag dynamic" 
+                    data-view="product" 
+                    data-currency="EUR" 
+                    data-country-code="ES" 
+                    data-language="es" 
+                    t-att-data-price="combination_info['price']" >
+                </div>
+				<div t-if="pricetags_dynamic == True" class="viabill-pricetag static" 
+                    data-view="product" 
+                    data-currency="EUR" 
+                    data-country-code="ES" 
+                    data-language="es" 
+                    data-dynamic-price=".oe_currency_value" 
+					data-dynamic-price-triggers=".js_product" >
+                </div>
+				<script>(function(){var o=document.createElement('script');o.type='text/javascript';o.async=true;o.src='https://pricetag.viabill.com/script/XxNrmNA6Beg%3D';var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(o,s);})();</script>
+			</t>
+		</xpath>
+	</template>
+</odoo>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<template id="cart_pricetag" inherit_id="website_sale.cart" name="cart pricetag">
+
+<xpath expr="//a[@href='/shop/checkout?express=1']" position="after">
+
+    <div data-view="basket" t-att-data-price="website_sale_order.amount_total" t-att-data-currency="website_sale_order.currency_id.name" data-country-code="US" data-language="en" class="viabill-pricetag"></div>
+<script>(function(){var o=document.createElement('script');o.type='text/javascript';o.async=true;o.src='https://pricetag.viabill.com/script/9PUhZtbFVqw%3D';var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(o,s);})();</script>
+</xpath>
+</template>
+</odoo>
