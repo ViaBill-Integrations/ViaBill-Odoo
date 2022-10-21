@@ -78,7 +78,6 @@ class OutgoingRequests
             ],
         ];
 
-        error_log(print_r($response->getBody()->getContents(), true));
         // Check for a 3XX redirect
         if (filter_var(
             $response->getStatusCode(), FILTER_VALIDATE_INT,

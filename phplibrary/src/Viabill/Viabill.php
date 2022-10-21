@@ -40,11 +40,11 @@ class Viabill
     /**
      * ViaBill constructor
      */
-    public function __construct()
+    public function __construct($testMode = false)
     {        
         $this->helper = new ViabillHelper();
 
-        $this->testMode = $this->helper->getTestMode();
+        $this->testMode = $testMode;
         $this->apiKey = $this->helper->getAPIKey();
         $this->apiSecret = $this->helper->getSecretKey();
     }

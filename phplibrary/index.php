@@ -3,6 +3,7 @@ require_once 'vendor/autoload.php';
 
 use App\Viabill\Viabill;
 use App\Viabill\IncomingRequests;
+use Dotenv\Dotenv;
 
 class PageContents
 {
@@ -23,7 +24,10 @@ class PageContents
 
     public function __construct()
     {
+        error_log("Capture ınit");
+
         $this->viabill = new Viabill();
+
         if (isset($_REQUEST['controller'])) {
             $this->controller_name = $_REQUEST['controller'];
         }
@@ -49,6 +53,7 @@ class PageContents
                 return $incoming->checkout_status();
                 break;
             case 'capture':
+                error_log(1098);
                 return $incoming->checkout_capture();
                 break;
             case 'void':
@@ -94,6 +99,16 @@ class PageContents
 
     public function getContents()
     {
+
+        if (!$this->checkIPs()) {
+            http_response_code(400);
+
+            header('content-type: text/plain; charset=utf-8');
+
+            echo json_encode(["error" => 'Request IP is not valid']);
+            return;
+        }
+
         if ($this->controller_name) {
             echo $this->routeIncomingRequest();
         } else {
@@ -101,7 +116,20 @@ class PageContents
             echo $contents;
         }
     }
+
+    private function checkIPs()
+    {
+        error_log(987923);
+        $ips = explode( ',', $_ENV['IP_RESTRICTION']) ;
+
+        if (!in_array($_SERVER['HTTP_X_FORWARDED_FOR'], $ips) && !in_array($_SERVER['REMOTE_ADDR'], $ips)) {
+            return false;
+        }
+
+        return true;
+    }
 }
+
 
 $page = new PageContents();
 $page->getContents();

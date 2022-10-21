@@ -3,13 +3,14 @@
 namespace App\Viabill;
 
 use App\Viabill\SampleData;
+use Dotenv\Dotenv;
 
 class ViabillHelper
 {
     /**
      * Check whether you want to use sample data or not
      */
-    private const USE_SAMPLE_DATA = 1;
+    private const USE_SAMPLE_DATA = 0;
 
     /**
      * @var bool
@@ -156,11 +157,11 @@ class ViabillHelper
         // back responses to the requests.
         // Make sure you are using the correct one.
 
-        status_header($status_code);
+        http_response_code($status_code);
 
-        header('content-type: text/plain; charset=utf-8');        
+        header('content-type: text/plain; charset=utf-8');
 
-        die($content);
+        return json_encode(["error" => $content]);
     }
 
     /**
@@ -234,12 +235,13 @@ class ViabillHelper
      * If you need help contact tech@viabill.com
      */
     protected function loadViabillSettings()
-    {                
-        exit(
-            "loadViabillSettings not implemented yet!
-            You need to implement it first or set the USE_SAMPLE_DATA = 1 instead,
-            if you want to try the transactions with sample data."
-        );
+    {
+        $dotenv = Dotenv::createImmutable(__DIR__.'/../../');
+        $dotenv->load();
+
+        $this->apiSecret = $_ENV['VIABILL_SECRET_KEY'];
+        $this->apiKey = $_ENV['VIABILL_APP_KEY'];
+        $this->testMode = $_ENV['TEST_MODE'];
     }
     
     protected function loadSampleSettings()

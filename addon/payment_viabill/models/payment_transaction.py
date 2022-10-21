@@ -4,6 +4,8 @@
 import logging
 import pprint
 import time
+from requests import Response
+import requests
 
 from werkzeug import urls
 
@@ -28,16 +30,22 @@ class PaymentTransaction(models.Model):
                :return: The dict of acquirer-specific rendering values
                :rtype: dict
                """
+
         res = super()._get_specific_rendering_values(processing_values)
         if self.provider != 'viabill':
             return res
 
-        _logger.info("capture data :\n%s", self.acquirer_id.acquirer_id.capture_manually)
-
         payload = self._viabill_prepare_payment_request_payload()
-        _logger.info("sending '?controller=checkout' request for link creation:\n%s", pprint.pformat(payload))
-        payment_data = self.acquirer_id._viabill_make_request('?controller=checkout', data=payload)
+        response: Response = self.acquirer_id._viabill_make_request('?controller=checkout', data=payload)
 
+        try:
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            self.update({"state_message": "Viabill: " + _("Could not capture manually: %s, error : %s", self.reference,
+                                                          response.json().get('error'))})
+            raise ValidationError("Could not establish the connection to ViaBill Server.")
+
+        payment_data = response.json()
         # The acquirer reference is set now to allow fetching the payment status after redirection
         self.acquirer_reference = payment_data.get('id')
 
@@ -46,7 +54,7 @@ class PaymentTransaction(models.Model):
         # from being stripped off when redirecting the user to the checkout URL, which can happen
         # when only one payment method is enabled on Mollie and query parameters are provided.
         _logger.info("sending '?controller=checkout' request for link creation:\n%s", pprint.pformat(payment_data))
-
+        self.update({'callback_res_id':123})
         checkout_url = payment_data['url']
         parsed_url = urls.url_parse(checkout_url)
         url_params = urls.url_decode(parsed_url.query)
@@ -66,6 +74,10 @@ class PaymentTransaction(models.Model):
         if not self.acquirer_id.capture_manually:
             capture = True
 
+        test = False
+        if self.acquirer_id.state == 'test':
+            test = True
+
         return {
             'description': self.reference,
             'amount': {
@@ -78,7 +90,8 @@ class PaymentTransaction(models.Model):
             # redirection, we include it in the redirect URL to be able to match the transaction.
             'redirectUrl': f'{redirect_url}?reference={self.reference}',
             'webhookUrl': f'{webhook_url}?reference={self.reference}',
-            'base_url': base_url
+            'base_url': base_url,
+            'test': test
         }
 
     def _get_tx_from_feedback_data(self, provider, data):
@@ -90,8 +103,6 @@ class PaymentTransaction(models.Model):
         :rtype: recordset of `payment.transaction`
         :raise: ValidationError if the data match no transaction
         """
-        _logger.info("provider :\n%s", pprint.pformat(provider))
-
         tx = super()._get_tx_from_feedback_data(provider, data)
         if provider != 'viabill':
             return tx
@@ -118,11 +129,20 @@ class PaymentTransaction(models.Model):
 
         payload = {"transaction": data.get("reference")}
         time.sleep(3)
-        payment_data = self.acquirer_id._viabill_make_request(
-            '?controller=status',data=payload, method="GET")
+        response: Response = self.acquirer_id._viabill_make_request(
+            '?controller=status', data=payload, method="GET")
+
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            self.update({"state_message": "Viabill: " + _("Could not capture manually: %s, error : %s", self.reference,
+                                                          response.json().get('error'))})
+            raise ValidationError("Could not establish the connection to ViaBill Server.")
+
+        payment_data = response.json()
 
         payment_status = payment_data.get('status')
-        _logger.info("payment status : %s", pprint.pformat(data))
 
         if payment_status in ['NEW', 'NONE']:
             self._set_pending()
@@ -138,7 +158,6 @@ class PaymentTransaction(models.Model):
                 "Viabill: " + _("Received data with invalid payment status: %s", payment_status)
             )
 
-
     def _send_capture_request(self):
         """ Override of payment to send a capture request to Authorize.
 
@@ -151,22 +170,39 @@ class PaymentTransaction(models.Model):
         if self.provider != 'viabill':
             return
 
+        test = False
+        if self.acquirer_id.state == 'test':
+            test = True
 
         payload = {
-            "transaction" : self.reference,
-            "amount" : self.amount,
-            "currency" : self.currency_id.name,
+            "transaction": self.reference,
+            "amount": self.amount,
+            "currency": self.currency_id.name,
+            "test": test
         }
 
-        capture = self.acquirer_id._viabill_make_request(
+        response: Response = self.acquirer_id._viabill_make_request(
             '?controller=capture', data=payload)
+
+        _logger.info("Response Status Code : %s", response.status_code)
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            raise ValidationError("Viabill Message : " + response.json().get('error'))
+
+        try:
+            capture = response.json()
+        except BaseException as e:
+            raise ValidationError("Could not establish the connection to ViaBill Server.")
 
         if capture.get('status'):
             self._set_done('Manually Captured')
         else:
             _logger.info("Could not capture manually: %s", self.reference)
             self._set_error(
-                "Viabill: " + _("Could not capture manually: %s", self.reference)
+                "Viabill: " + _("Could not capture manually: %s, error : %s", self.reference,
+                                capture.get('error'))
             )
 
     def _send_void_request(self):
@@ -185,12 +221,26 @@ class PaymentTransaction(models.Model):
         if self.provider != 'viabill':
             return
 
+        test = False
+        if self.acquirer_id.state == 'test':
+            test = True
+
         payload = {
-            "transaction" : self.reference,
+            "transaction": self.reference,
+            "test": test,
         }
 
-        void = self.acquirer_id._viabill_make_request(
+        response: Response = self.acquirer_id._viabill_make_request(
             '?controller=void', data=payload)
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            self.update({"state_message": "Viabill: " + _("Could not capture manually: %s, error : %s", self.reference,
+                                                          response.json().get('error'))})
+            raise ValidationError("Could not establish the connection to ViaBill Server.")
+
+        void = response.json()
 
         if void.get('status'):
             self._set_canceled('Manually Cancelled')
@@ -209,16 +259,29 @@ class PaymentTransaction(models.Model):
         :rtype: recordset of `payment.transaction`
         """
         self.ensure_one()
-        _logger.info("Refund started")
+
+        test = False
+        if self.acquirer_id.state == 'test':
+            test = True
 
         payload = {
             "transaction": self.reference,
             'amount': amount_to_refund or self.amount,
             'currency_id': self.currency_id.name,
+            "test": test,
         }
 
-        refund = self.acquirer_id._viabill_make_request(
+        response: Response = self.acquirer_id._viabill_make_request(
             '?controller=refund', data=payload)
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            self.update({"state_message": "Viabill: " + _("Could not capture manually: %s, error : %s", self.reference,
+                                                          response.json().get('error'))})
+            raise ValidationError("Could not establish the connection to ViaBill Server.")
+
+        refund = response.json()
 
         # return self.create({
         #     'acquirer_id': self.acquirer_id.id,

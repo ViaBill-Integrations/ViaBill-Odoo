@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
+
     <record id="payment_acquirer_viabill" model="payment.acquirer">
         <field name="provider">viabill</field>
         <field name="name">ViaBill</field>
@@ -22,6 +23,8 @@
                 </li>
             </ul>
         </field>
+
+
     </record>
 
     <record id="payment_method_viabill" model="account.payment.method">
@@ -29,4 +32,5 @@
         <field name="code">viabill</field>
         <field name="payment_type">inbound</field>
     </record>
+
 </odoo>

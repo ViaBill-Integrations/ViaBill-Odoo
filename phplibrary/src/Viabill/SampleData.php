@@ -9,7 +9,7 @@ class SampleData
      * This is your API Key that uniquely identifies each merchant
      * You retrieve this key during the sign up process
      */
-    const API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlcyI6WyJNRVJDSEFOVCJdLCJ1dWlkIjoiZmQ0Y2JmODEtZWJlYi0xMWVjLTk5ODAtYTEwZmEwYTQyYzQwIiwidHYiOjAsImVudiI6IlBST0RVQ1RJT04iLCJpYXQiOjE2NTUyMTU5MzQsImV4cCI6MTk3MDgzNTEzNH0.sOWmS81MBa0WfA9ubIg-he8W6g7-7y-4FMlW-qOk9ow'; // Your Api Key;
+    const API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlcyI6WyJNRVJDSEFOVCJdLCJ1dWlkIjoiMjZjZTQ1NTAtNGZjNC0xMWVkLWEzMmItNjkyM2FiOWIwYjkzIiwidHYiOjAsImVudiI6IlBST0RVQ1RJT04iLCJpYXQiOjE2NjYxOTM5NDAsImV4cCI6MTk4MTgxMzE0MH0.MzzEodnNl5VYfkm5g6Pdynf4Ob2t0KwCTL7oqALQMJk'; // Your Api Key;
 
     /**
      * TODO:
@@ -17,7 +17,7 @@ class SampleData
      * to the Viabill server and it is private.
      * You retrieve this key during the sign up process
      */
-    const SECRET_KEY = 'dMRPZ5SRoGjx'; // Your Secret Key
+    const SECRET_KEY = 'X7Ri5rLITu3m'; // Your Secret Key
     
     /**
      * TODO:

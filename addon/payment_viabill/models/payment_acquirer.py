@@ -3,20 +3,20 @@
 
 import logging
 import requests
+from requests import Response
 from werkzeug import urls
 import pprint
 
 from odoo import _, api, fields, models, service
 from odoo.exceptions import ValidationError
 
-
 _logger = logging.getLogger(__name__)
 
 from .const import SUPPORTED_CURRENCIES
 
+
 class PaymentAcquirer(models.Model):
     _inherit = 'payment.acquirer'
-
 
     provider = fields.Selection(
         selection_add=[('viabill', 'Viabill')], ondelete={'viabill': 'set default'}
@@ -37,21 +37,6 @@ class PaymentAcquirer(models.Model):
             acquirers = acquirers.filtered(lambda a: a.provider != 'viabill')
 
         return acquirers
-
-    def _sips_generate_shasign(self, data):
-        """ Generate the shasign for incoming or outgoing communications.
-
-        Note: self.ensure_one()
-
-        :param str data: The data to use to generate the shasign
-        :return: shasign
-        :rtype: str
-        """
-        self.ensure_one()
-
-        key = self.sips_secret
-        shasign = sha256((data + key).encode('utf-8'))
-        return shasign.hexdigest()
 
     def _get_default_payment_method_id(self):
         self.ensure_one()
@@ -74,20 +59,26 @@ class PaymentAcquirer(models.Model):
         self.ensure_one()
 
         base_url = self.viabill_base_url
-        _logger.info("Viabil Base Urş :\n%s", base_url)
 
         url = urls.url_join(base_url, endpoint)
         headers = {
             "Content-Type": "application/json",
         }
-        _logger.info("1111111s")
+        _logger.exception("URL Viabill: %s", url)
 
         try:
-            response = requests.request(method, url, json=data, headers=headers, timeout=60)
-            _logger.info("checkout response :\n%s", pprint.pformat(response))
-
-            response.raise_for_status()
+            response: Response = requests.request(method, url, json=data, headers=headers, timeout=60)
+            return response
         except requests.exceptions.RequestException:
             _logger.exception("Unable to communicate with Viabill: %s", url)
-            raise ValidationError("Viabill: " + _("Could not establish the connection to the API."))
-        return response.json()
+            raise ValidationError("Could not establish the connection to ViaBill Server.")
+
+        # if response.status_code >= 400:
+        #     _logger.exception("ViaBill Response has error: %s", response.json().get('error'))
+        #     raise ValidationError("Something went wrong in ViaBill.")
+        #
+        # try:
+        #     return response.json()
+        # except BaseException as e:
+        #     _logger.exception("Response.json() error : %s", str(e))
+        #     raise ValidationError("Viabill: " + _("Could not establish the connection to the API."))

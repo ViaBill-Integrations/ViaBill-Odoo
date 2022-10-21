@@ -3,6 +3,7 @@
 namespace App\Viabill;
 
 use App\Viabill\Exceptions\ViabillRequestException;
+use Exception;
 use ViabillExample;
 
 class IncomingRequests
@@ -15,7 +16,6 @@ class IncomingRequests
     /**
      * RequestProcessor constructor.
      *
-     * @param Database $db
      * @param bool $testMode
      */
     public function __construct()
@@ -34,7 +34,6 @@ class IncomingRequests
         require_once $parent_dir . '/examples/ViabillExample.php';
         $json = file_get_contents('php://input');
         $order = json_decode($json, true);
-        error_log(print_r($order, true));
         try {
             $data = $this->getServerData('success');
             $request = print_r($_REQUEST, true);
@@ -42,39 +41,38 @@ class IncomingRequests
             $debug_str = "New Request data: " . $request . "\n";
             file_put_contents($debug_filename, $debug_str, FILE_APPEND);
 
-            $viabill = \ViabillExample::initialize();
+            $viabill = new Viabill($order['test']);
 
             $data = [
                 'apikey' => $this->helper->getAPIKey(),
                 'transaction' => $order['description'],
                 'order_number' => $order['description'],
                 'amount' => $order['amount']['value'],
-                'currency' => $order['amount']['currency'],
+                'currency' => 'DKK',
+//                'currency' => $order['amount']['currency'],
                 'success_url' => $viabill->helper->getSuccessURL($order),
                 'cancel_url' => $viabill->helper->getCancelURL($order),
                 'callback_url' => $viabill->helper->getCallbackURL($order),
-                'test' => $viabill->helper->getTestMode()
+                'test' => $order['test']
             ];
-
-            $response = null;
-
+            error_log(print_r($data, true));
             try {
                 $response = $viabill->checkout($data, []);
                 if (isset($response['redirect_url'])) {
                     // This URL is sent by the Viabill server
                     // in order to redirect buyer/customer into the checkout page
                     // on the Viabill server
-                    error_log($response['redirect_url']);
                     return json_encode(["url" => $response['redirect_url']]);
-//                    return $viabill->helper->httpRedirect($redirect_url);
                 }
             } catch (ViabillRequestException $e) {
                 var_dump($e);
-                return false;
+                error_log($e->getMessage());
+                return $this->helper->httpResponse($e->getMessage(), $e->getCode());
             }
 
         } catch (Exception $e) {
             $code = $e->getCode();
+            error_log($e->getMessage());
             $content = "An error has occured during the checkout request to the Viabill server: " . $code;
             return $this->helper->httpResponse($content, $code);
         }
@@ -96,7 +94,7 @@ class IncomingRequests
             return $this->helper->httpResponse($content, $code);
         }
 
-        return $this->helper->httpRedirect('http://192.168.1.51:8069/payment/viabilltt/return?reference=' . $data['transaction']);
+        return $this->helper->httpRedirect($_ENV['ODOO_BASE_URL'] . '/payment/viabill/return?reference=' . $data['transaction']);
     }
 
     /**
@@ -121,19 +119,24 @@ class IncomingRequests
             return $this->helper->httpResponse($content, $code);
         }
 
-        $viabill = \ViabillExample::initialize();
+        $viabill = new Viabill($order['test']);
 
         $captureData = [
             'id' => $order['transaction'],
             'apikey' => $viabill->helper->getAPIKey(),
             // amount must be negative
             'amount' => ($order['amount'] <= 0 ? $order['amount'] : (-1 * abs($order['amount']))),
-            'currency' => $order['currency'],
+            'currency' => 'DKK',
         ];
-        $capture = $viabill->captureTransaction($captureData);
+        try {
+            $capture = $viabill->captureTransaction($captureData);
+        } catch (Exception $e) {
+            error_log($e->getMessage());
+            return $this->helper->httpResponse($e->getMessage(), $e->getCode());
+        }
 
-        if(!$capture) {
-           return 404;
+        if (!$capture) {
+            return 404;
         }
         return json_encode(['status' => true]);
     }
@@ -161,15 +164,20 @@ class IncomingRequests
             return $this->helper->httpResponse($content, $code);
         }
 
-        $viabill = \ViabillExample::initialize();
+        $viabill = new Viabill($order['test']);
 
         $voidData = [
             'id' => $order['transaction'],
             'apikey' => $viabill->helper->getAPIKey(),
         ];
-        $void = $viabill->cancelTransaction($voidData);
+        try {
+            $void = $viabill->cancelTransaction($voidData);
+        } catch (Exception $e) {
+            var_dump($e);
+            return $this->helper->httpResponse($e->getMessage(), $e->getCode());
+        }
 
-        if(!$void) {
+        if (!$void) {
             return 404;
         }
 
@@ -190,7 +198,7 @@ class IncomingRequests
         require_once $parent_dir . '/examples/ViabillExample.php';
         $json = file_get_contents('php://input');
         $order = json_decode($json, true);
-        error_log(print_r($order, true));
+
         try {
             $data = $this->getServerData('capture');
         } catch (Exception $e) {
@@ -199,7 +207,7 @@ class IncomingRequests
             return $this->helper->httpResponse($content, $code);
         }
 
-        $viabill = \ViabillExample::initialize();
+        $viabill = new Viabill($order['test']);
 
         $refundData = [
             'id' => $order['transaction'],
@@ -208,9 +216,14 @@ class IncomingRequests
             'currency' => $order['currency'],
         ];
 
-        $refund = $viabill->refundTransaction($refundData);
+        try {
+            $refund = $viabill->refundTransaction($refundData);
+        } catch (Exception $e) {
+            var_dump($e);
+            return $this->helper->httpResponse($e->getMessage(), $e->getCode());
+        }
 
-        if(!$refund) {
+        if (!$refund) {
             return 404;
         }
         return json_encode(['status' => true]);
@@ -228,7 +241,6 @@ class IncomingRequests
         require_once $parent_dir . '/examples/ViabillExample.php';
         $json = file_get_contents('php://input');
         $order = json_decode($json, true);
-        error_log(print_r($order, true));
         $viabill = ViabillExample::initialize();
 
         $data = [
@@ -236,11 +248,14 @@ class IncomingRequests
             'id' => $order['transaction'],
         ];
 
-        $response = $viabill->status($data,[],true);
+        try {
+            $response = $viabill->status($data, [], true);
+        } catch (Exception $e) {
+            var_dump($e);
+            return $this->helper->httpResponse($e->getMessage(), $e->getCode());
+        }
 
-        $r = json_decode($response['response']['body'],true);
-
-        error_log("r : " . print_r($r, true));
+        $r = json_decode($response['response']['body'], true);
 
         return json_encode(['status' => $r['state']]);
 
@@ -252,7 +267,6 @@ class IncomingRequests
      * if the buyer has cancelled the payment during the checkout process.
      * It should redirect the buyer into a "The payment has been cancelled" page.
      *
-     * @return HTTP Response
      */
     public function checkout_cancel()
     {
@@ -264,7 +278,7 @@ class IncomingRequests
             return $this->helper->httpResponse($content, $code);
         }
 
-        return $this->helper->httpRedirect('http://192.168.1.51:8069/payment/viabilltt/return?reference=' . $data['transaction']);
+        return $this->helper->httpRedirect($_ENV['ODOO_BASE_URL'] . '/payment/viabill/return?reference=' . $data['transaction']);
 
     }
 
@@ -282,7 +296,7 @@ class IncomingRequests
         } catch (Exception $e) {
             $code = $e->getCode();
             $content = "An error has occured during the callback call: " . $code;
-            return response($content, $code);
+            return $this->helper->httpResponse($content, $code);
         }
         $payload = json_decode(file_get_contents('php://input'), true);
 
@@ -304,7 +318,7 @@ class IncomingRequests
                     $log_msg = 'SUCCESS: Transaction was approved';
                     $result_action = 'approve';
                     if ($autoCapture) {
-                        error_log(111111111);
+
                         $captureData = [
                             'id' => $transaction_id,
                             'apikey' => $viabill->helper->getAPIKey(),
@@ -312,15 +326,14 @@ class IncomingRequests
                             'amount' => $amount <= 0 ? $amount : (-1 * abs($amount)),
                             'currency' => $currency,
                         ];
-                        error_log(222222222);
+
                         $capture = $viabill->captureTransaction($captureData);
-                        error_log("capture : "  . $capture);
+
                         if ($capture !== true) {
                             $log_msg = 'ERROR: Transaction was approved, but not captured';
                             $result_action = 'pending';
                         }
                     }
-                    error_log(44444444444444);
 
                     break;
                 case 'CANCELLED':
@@ -348,7 +361,8 @@ class IncomingRequests
         if (!empty($log_msg)) {
             $this->helper->log($log_msg);
         }
-        file_get_contents('http://192.168.1.51:8069/payment/viabilltt/return?reference=' . $transaction_id);
+
+        $get =  file_get_contents('http://192.168.1.51:8069/payment/viabill/return?reference=' . $transaction_id);
     }
 
     /**

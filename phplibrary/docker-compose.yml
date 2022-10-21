@@ -14,6 +14,8 @@ services:
     working_dir: /var/www
     networks:
       - odoo
+    volumes:
+      - /home/ugur/www/Viabill/Library_From_Vivilari/vendor:/vendor/
   webserver:
     build:
       context: .
