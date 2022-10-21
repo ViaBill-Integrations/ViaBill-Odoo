@@ -1,0 +1,28 @@
+version: '3'
+services:
+  #PHP Service
+  app_library_vb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    working_dir: /var/www
+    networks:
+      - odoo
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["nginx", "-g", "daemon off;"]
+    container_name: webserver
+    ports:
+      - "8080:8080"
+    networks:
+      - odoo
+networks:
+  odoo:

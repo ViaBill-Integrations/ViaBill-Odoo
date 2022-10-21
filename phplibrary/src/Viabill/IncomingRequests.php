@@ -1,0 +1,372 @@
+<?php
+
+namespace App\Viabill;
+
+use App\Viabill\Exceptions\ViabillRequestException;
+use ViabillExample;
+
+class IncomingRequests
+{
+    /**
+     * @var ViabillHelper
+     */
+    private $helper;
+
+    /**
+     * RequestProcessor constructor.
+     *
+     * @param Database $db
+     * @param bool $testMode
+     */
+    public function __construct()
+    {
+        $this->helper = new ViabillHelper();
+    }
+
+    /**
+     * This function for initiating the checkout request to the Viabill server,
+     *
+     */
+    public function checkout_init()
+    {
+        $parent_dir = dirname(__DIR__, 2);
+        require_once $parent_dir . '/vendor/autoload.php';
+        require_once $parent_dir . '/examples/ViabillExample.php';
+        $json = file_get_contents('php://input');
+        $order = json_decode($json, true);
+        error_log(print_r($order, true));
+        try {
+            $data = $this->getServerData('success');
+            $request = print_r($_REQUEST, true);
+            $debug_filename = __DIR__ . '/debug.txt';
+            $debug_str = "New Request data: " . $request . "\n";
+            file_put_contents($debug_filename, $debug_str, FILE_APPEND);
+
+            $viabill = \ViabillExample::initialize();
+
+            $data = [
+                'apikey' => $this->helper->getAPIKey(),
+                'transaction' => $order['description'],
+                'order_number' => $order['description'],
+                'amount' => $order['amount']['value'],
+                'currency' => $order['amount']['currency'],
+                'success_url' => $viabill->helper->getSuccessURL($order),
+                'cancel_url' => $viabill->helper->getCancelURL($order),
+                'callback_url' => $viabill->helper->getCallbackURL($order),
+                'test' => $viabill->helper->getTestMode()
+            ];
+
+            $response = null;
+
+            try {
+                $response = $viabill->checkout($data, []);
+                if (isset($response['redirect_url'])) {
+                    // This URL is sent by the Viabill server
+                    // in order to redirect buyer/customer into the checkout page
+                    // on the Viabill server
+                    error_log($response['redirect_url']);
+                    return json_encode(["url" => $response['redirect_url']]);
+//                    return $viabill->helper->httpRedirect($redirect_url);
+                }
+            } catch (ViabillRequestException $e) {
+                var_dump($e);
+                return false;
+            }
+
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the checkout request to the Viabill server: " . $code;
+            return $this->helper->httpResponse($content, $code);
+        }
+    }
+
+    /**
+     * This function is handling the "success" request that is invoked by the Viabill server,
+     * if the buyer has completed the payment during the checkout process.
+     * It should redirect the buyer into a "Thank you for your payment" page.
+     *
+     */
+    public function checkout_success()
+    {
+        try {
+            $data = $this->getServerData('success');
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the success call: " . $code;
+            return $this->helper->httpResponse($content, $code);
+        }
+
+        return $this->helper->httpRedirect('http://192.168.1.51:8069/payment/viabilltt/return?reference=' . $data['transaction']);
+    }
+
+    /**
+     * This function is handling the "success" request that is invoked by the Viabill server,
+     * if the buyer has completed the payment during the checkout process.
+     * It should redirect the buyer into a "Thank you for your payment" page.
+     *
+     */
+    public function checkout_capture()
+    {
+        $parent_dir = dirname(__DIR__, 2);
+        require_once $parent_dir . '/vendor/autoload.php';
+        require_once $parent_dir . '/examples/ViabillExample.php';
+        $json = file_get_contents('php://input');
+        $order = json_decode($json, true);
+        error_log(print_r($order, true));
+        try {
+            $data = $this->getServerData('capture');
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the success call: " . $code;
+            return $this->helper->httpResponse($content, $code);
+        }
+
+        $viabill = \ViabillExample::initialize();
+
+        $captureData = [
+            'id' => $order['transaction'],
+            'apikey' => $viabill->helper->getAPIKey(),
+            // amount must be negative
+            'amount' => ($order['amount'] <= 0 ? $order['amount'] : (-1 * abs($order['amount']))),
+            'currency' => $order['currency'],
+        ];
+        $capture = $viabill->captureTransaction($captureData);
+
+        if(!$capture) {
+           return 404;
+        }
+        return json_encode(['status' => true]);
+    }
+
+    /**
+     * This function is handling the "success" request that is invoked by the Viabill server,
+     * if the buyer has completed the payment during the checkout process.
+     * It should redirect the buyer into a "Thank you for your payment" page.
+     *
+     */
+    public function checkout_void()
+    {
+        $parent_dir = dirname(__DIR__, 2);
+        require_once $parent_dir . '/vendor/autoload.php';
+        require_once $parent_dir . '/examples/ViabillExample.php';
+        $json = file_get_contents('php://input');
+        $order = json_decode($json, true);
+        error_log(print_r($order, true));
+
+        try {
+            $data = $this->getServerData('capture');
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the success call: " . $code;
+            return $this->helper->httpResponse($content, $code);
+        }
+
+        $viabill = \ViabillExample::initialize();
+
+        $voidData = [
+            'id' => $order['transaction'],
+            'apikey' => $viabill->helper->getAPIKey(),
+        ];
+        $void = $viabill->cancelTransaction($voidData);
+
+        if(!$void) {
+            return 404;
+        }
+
+        return json_encode(['status' => true]);
+    }
+
+
+    /**
+     * This function is handling the "success" request that is invoked by the Viabill server,
+     * if the buyer has completed the payment during the checkout process.
+     * It should redirect the buyer into a "Thank you for your payment" page.
+     *
+     */
+    public function checkout_refund()
+    {
+        $parent_dir = dirname(__DIR__, 2);
+        require_once $parent_dir . '/vendor/autoload.php';
+        require_once $parent_dir . '/examples/ViabillExample.php';
+        $json = file_get_contents('php://input');
+        $order = json_decode($json, true);
+        error_log(print_r($order, true));
+        try {
+            $data = $this->getServerData('capture');
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the success call: " . $code;
+            return $this->helper->httpResponse($content, $code);
+        }
+
+        $viabill = \ViabillExample::initialize();
+
+        $refundData = [
+            'id' => $order['transaction'],
+            'apikey' => $viabill->helper->getAPIKey(),
+            'amount' => ($order['amount'] <= 0 ? $order['amount'] : (-1 * abs($order['amount']))),
+            'currency' => $order['currency'],
+        ];
+
+        $refund = $viabill->refundTransaction($refundData);
+
+        if(!$refund) {
+            return 404;
+        }
+        return json_encode(['status' => true]);
+    }
+
+
+    /**
+     * This function is handling the "status" request that is invoked by the Viabill server,
+     *
+     */
+    public function checkout_status()
+    {
+        $parent_dir = dirname(__DIR__, 2);
+        require_once $parent_dir . '/vendor/autoload.php';
+        require_once $parent_dir . '/examples/ViabillExample.php';
+        $json = file_get_contents('php://input');
+        $order = json_decode($json, true);
+        error_log(print_r($order, true));
+        $viabill = ViabillExample::initialize();
+
+        $data = [
+            'apikey' => $this->helper->getAPIKey(),
+            'id' => $order['transaction'],
+        ];
+
+        $response = $viabill->status($data,[],true);
+
+        $r = json_decode($response['response']['body'],true);
+
+        error_log("r : " . print_r($r, true));
+
+        return json_encode(['status' => $r['state']]);
+
+    }
+
+
+    /**
+     * This function is handling the "cancel" request that is invoked by the Viabill server,
+     * if the buyer has cancelled the payment during the checkout process.
+     * It should redirect the buyer into a "The payment has been cancelled" page.
+     *
+     * @return HTTP Response
+     */
+    public function checkout_cancel()
+    {
+        try {
+            $data = $this->getServerData('cancel');
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the cancel call: " . $code;
+            return $this->helper->httpResponse($content, $code);
+        }
+
+        return $this->helper->httpRedirect('http://192.168.1.51:8069/payment/viabilltt/return?reference=' . $data['transaction']);
+
+    }
+
+    /**
+     * This function is handling the "callback" request that is invoked by the Viabill server,
+     * after the checkout process has been completed.
+     * You should use this function to update the status of the order, based on the callback status
+     * that can APPROVED, CANCELLED or REJECTED.
+     *
+     */
+    public function checkout_callback()
+    {
+        try {
+            $data = $this->getServerData('callback');
+        } catch (Exception $e) {
+            $code = $e->getCode();
+            $content = "An error has occured during the callback call: " . $code;
+            return response($content, $code);
+        }
+        $payload = json_decode(file_get_contents('php://input'), true);
+
+        $transaction_id = $payload['transaction'] ?? null;
+        $order_id = $payload['orderNumber'] ?? null;
+        $amount = $payload['amount'] ?? null;
+        $currency = $payload['currency'] ?? null;
+        $autoCapture = $data['capture'];
+
+        $log_msg = '';
+
+        // Set the ViaBill API Key and Secret for the shop_id
+        $viabill = new Viabill();
+        // Verify the callback signature
+        if ($viabill->verifyCallbackSignature($payload)) {
+            $callback_status = $payload['status'];
+            switch ($callback_status) {
+                case 'APPROVED':
+                    $log_msg = 'SUCCESS: Transaction was approved';
+                    $result_action = 'approve';
+                    if ($autoCapture) {
+                        error_log(111111111);
+                        $captureData = [
+                            'id' => $transaction_id,
+                            'apikey' => $viabill->helper->getAPIKey(),
+                            // amount must be negative
+                            'amount' => $amount <= 0 ? $amount : (-1 * abs($amount)),
+                            'currency' => $currency,
+                        ];
+                        error_log(222222222);
+                        $capture = $viabill->captureTransaction($captureData);
+                        error_log("capture : "  . $capture);
+                        if ($capture !== true) {
+                            $log_msg = 'ERROR: Transaction was approved, but not captured';
+                            $result_action = 'pending';
+                        }
+                    }
+                    error_log(44444444444444);
+
+                    break;
+                case 'CANCELLED':
+                    $log_msg = 'CANCELLED: Transaction was cancelled';
+                    $result_action = 'cancel';
+                    break;
+                case'REJECTED':
+                    $log_msg = 'REJECTED: Transaction was rejected';
+                    $result_action = 'reject';
+                    break;
+                default:
+                    $error_log_msg = 'ERROR: Unknown Viabill Server Callback Status:' . $callback_status;
+                    $result_action = 'cancel';
+                    break;
+            }
+
+            // Based on the callback status, you need to take some action
+            // For instance, you may need to change the order status and
+            // send a confirmation message to the buyer
+            $this->helper->resolveCheckoutCallbackAction($result_action, $transaction_id, $order_id);
+        } else {
+            $log_msg = 'ERROR: Failed to verify callback signature.';
+        }
+
+        if (!empty($log_msg)) {
+            $this->helper->log($log_msg);
+        }
+        file_get_contents('http://192.168.1.51:8069/payment/viabilltt/return?reference=' . $transaction_id);
+    }
+
+    /**
+     * TODO:
+     * Get data from the Viabill server, after a call has been invoked ("success", "cancel" or "callback")
+     * Note that each platform/framework will have a specific built-in function
+     * to retrieve the request data in a safe and clean way. Use this instead of the following
+     * "raw" method.
+     *
+     * @param string $task
+     *
+     * @return array
+     */
+    public function getServerData($task = null)
+    {
+        $data = $_REQUEST;
+
+        return $data;
+    }
+
+}
