@@ -65,7 +65,6 @@ class IncomingRequests
                     return json_encode(["url" => $response['redirect_url']]);
                 }
             } catch (ViabillRequestException $e) {
-                var_dump($e);
                 error_log($e->getMessage());
                 return $this->helper->httpResponse($e->getMessage(), $e->getCode());
             }
@@ -154,11 +153,11 @@ class IncomingRequests
         require_once $parent_dir . '/examples/ViabillExample.php';
         $json = file_get_contents('php://input');
         $order = json_decode($json, true);
-        error_log(print_r($order, true));
 
         try {
-            $data = $this->getServerData('capture');
+            $data = $this->getServerData('cancel');
         } catch (Exception $e) {
+            error_log($e->getMessage());
             $code = $e->getCode();
             $content = "An error has occured during the success call: " . $code;
             return $this->helper->httpResponse($content, $code);
@@ -173,7 +172,7 @@ class IncomingRequests
         try {
             $void = $viabill->cancelTransaction($voidData);
         } catch (Exception $e) {
-            var_dump($e);
+            error_log($e->getMessage());
             return $this->helper->httpResponse($e->getMessage(), $e->getCode());
         }
 
@@ -200,7 +199,7 @@ class IncomingRequests
         $order = json_decode($json, true);
 
         try {
-            $data = $this->getServerData('capture');
+            $data = $this->getServerData('refund');
         } catch (Exception $e) {
             $code = $e->getCode();
             $content = "An error has occured during the success call: " . $code;
@@ -212,14 +211,14 @@ class IncomingRequests
         $refundData = [
             'id' => $order['transaction'],
             'apikey' => $viabill->helper->getAPIKey(),
-            'amount' => ($order['amount'] <= 0 ? $order['amount'] : (-1 * abs($order['amount']))),
+            'amount' => ($order['amount'] >= 0 ? $order['amount'] : abs($order['amount'])),
             'currency' => $order['currency'],
         ];
 
         try {
             $refund = $viabill->refundTransaction($refundData);
         } catch (Exception $e) {
-            var_dump($e);
+            error_log($e->getMessage());
             return $this->helper->httpResponse($e->getMessage(), $e->getCode());
         }
 
@@ -251,7 +250,6 @@ class IncomingRequests
         try {
             $response = $viabill->status($data, [], true);
         } catch (Exception $e) {
-            var_dump($e);
             return $this->helper->httpResponse($e->getMessage(), $e->getCode());
         }
 

@@ -241,7 +241,7 @@ class ViabillHelper
 
         $this->apiSecret = $_ENV['VIABILL_SECRET_KEY'];
         $this->apiKey = $_ENV['VIABILL_APP_KEY'];
-        $this->testMode = $_ENV['TEST_MODE'];
+//        $this->testMode = $_ENV['TEST_MODE'];
     }
     
     protected function loadSampleSettings()
