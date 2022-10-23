@@ -109,7 +109,7 @@ class IncomingRequests
         require_once $parent_dir . '/examples/ViabillExample.php';
         $json = file_get_contents('php://input');
         $order = json_decode($json, true);
-        error_log(print_r($order, true));
+
         try {
             $data = $this->getServerData('capture');
         } catch (Exception $e) {
