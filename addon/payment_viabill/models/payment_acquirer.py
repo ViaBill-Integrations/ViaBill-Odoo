@@ -29,7 +29,7 @@ class PaymentAcquirer(models.Model):
     )
 
     def _get_compatible_acquirers(self, *args, currency_id=None, **kwargs):
-        """ Override of payment to unlist Sips acquirers when the currency is not supported. """
+        """ Override of payment to unlist Viabill acquirers when the currency is not supported. """
         acquirers = super()._get_compatible_acquirers(*args, currency_id=currency_id, **kwargs)
 
         currency = self.env['res.currency'].browse(currency_id).exists()

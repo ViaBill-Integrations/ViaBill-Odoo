@@ -24,8 +24,6 @@ class PageContents
 
     public function __construct()
     {
-        error_log("Capture ınit");
-
         $this->viabill = new Viabill();
 
         if (isset($_REQUEST['controller'])) {
@@ -53,7 +51,6 @@ class PageContents
                 return $incoming->checkout_status();
                 break;
             case 'capture':
-                error_log(1098);
                 return $incoming->checkout_capture();
                 break;
             case 'void':
@@ -119,7 +116,6 @@ class PageContents
 
     private function checkIPs()
     {
-        error_log(987923);
         $ips = explode( ',', $_ENV['IP_RESTRICTION']) ;
 
         if (!in_array($_SERVER['HTTP_X_FORWARDED_FOR'], $ips) && !in_array($_SERVER['REMOTE_ADDR'], $ips)) {
