@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<template id="product_pricetag" inherit_id="website_sale.product" name="product pricetag">
-
-<xpath expr="//a[@id='add_to_cart']" position="before">
-<div data-view="product" t-att-data-price="combination_info['price']" data-currency="dkk" data-country-code="DK" data-language="dk" class="viabill-pricetag" ></div>
-
-    <script>(function(){var o=document.createElement('script');o.type='text/javascript';o.async=true;o.src='https://pricetag-test.viabill.com/script/9hMiT6RilNY%3D';var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(o,s);})();</script>
-</xpath>
-</template>
+    <template id="product_pricetag" inherit_id="website_sale.product" name="product pricetag">
+        <xpath expr="//a[@id='add_to_cart']" position="before">
+        <t t-set="pricetags_enabled" t-value="True" />
+        <t t-set="pricetags_dynamic" t-value="False" />
+        <t t-if="pricetags_enabled">
+            <t t-if="pricetags_dynamic"></t>
+            <div t-if="pricetags_dynamic == False" class="viabill-pricetag"
+                data-view="product"
+                data-currency="DKK"
+                data-country-code="DK"
+                data-language="dk"
+                t-att-data-price="combination_info['price']" >
+            </div>            
+            <div t-if="pricetags_dynamic == True" class="viabill-pricetag"
+                data-view="product"
+                data-currency="DKK"
+                data-country-code="DK"
+                data-language="dk"
+                data-dynamic-price=".oe_currency_value"
+                data-dynamic-price-triggers=".js_product" >
+            </div>
+            <script>(function(){var o=document.createElement('script');o.type='text/javascript';o.async=true;o.src='https://pricetag-test.viabill.com/script/9hMiT6RilNY%3D';var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(o,s);})();</script>
+        </t>                    
+        </xpath>
+    </template>
 </odoo>
