@@ -6,7 +6,7 @@ class ViaBillServices
 {
     // TODO: 
     // You must give a valid addon name, please contact tech@viabill.com    
-    const ADDON_NAME = 'your-addon-name';
+    const ADDON_NAME = 'odoo';
 
     // These endpoints contain references to the addon name
     const API_END_POINTS = [        
