@@ -12,7 +12,7 @@ Odoo is an ERP system which is written in Python. Viabill has an PHP library int
 
 2) Go to the main odoo.conf file, and add options like in config/odoo.conf. If you don’t know where the main odoo.conf file is, there is a good chance it is in the /etc/odoo directory.
 
-3) In payment_viabill/views pricetag script in product_pricetag_views.xml and cart_pricetag_views.xml with you script. You don’t have to touch the div element.
+3) In payment_viabill/views/product_pricetag_views.xml file, update the dummy pricetag script with your pricetag script. Do the same thing for cart_pricetag_views.xml. You don’t have to touch the div elements.
 
 4) Inside the Odoo web interface admin panel go to Apps and click “Update Apps List”.
 
